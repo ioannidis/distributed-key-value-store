@@ -1,0 +1,11 @@
+"person0": {}
+"person1": {"email": "XWPLE", "name": {"favoriteColor": {"phone": {"longitude": {"licensePlate": "ggqWZX", "birthdate": 544}, "favoriteColor": "TVJbNW"}, "secureCode": 821}, "number": 69}}
+"person2": {}
+"person3": {}
+"person4": {"phone": {"secureCode": 52, "licensePlate": "jtdPJW"}, "birthdate": {"favoriteColor": "htvXrj", "phone": {"zip": 536, "iban": "jmgMAJJ"}}}
+"person5": {"iban": "OS", "country": "MkonaI"}
+"person6": {}
+"person7": {"street": "uYyWrbXA", "name": "GcWOc"}
+"person8": {"longitude": 98.24856605289833, "favoriteColor": {"latitude": {"birthdate": 826, "email": "SRVw"}, "email": "hiHD"}}
+"person9": {"zip": {"secureCode": 861, "birthdate": {"longitude": 46.53143851711293, "street": "HcyHYRb"}}, "street": "KS"}
+"person10": {"number": {"zip": 89, "latitude": 99.36878813701125}, "birthdate": {"iban": {"number": 854, "email": "cUkzXkjY"}, "phone": "JiRpVZZ"}}

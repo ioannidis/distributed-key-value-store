@@ -1,0 +1,15 @@
+name string
+phone string
+email string
+birthdate int
+street string
+number int
+zip int
+licensePlate string
+country string
+iban string
+favoriteColor string
+secureCode int
+latitude float
+longitude float
+height float
