@@ -29,9 +29,9 @@ data_generator = DataGenerator(options, keys)
 data_generator.generate()
 data = data_generator.get_data()
 
-f = open('dataToIndex.txt', 'w')
+f = open(options['k'], 'w')
 for d in data:
-    f.write(d)
+    f.write(json.dumps(d)[1:-1])
     f.write('\n')
 f.close()
 

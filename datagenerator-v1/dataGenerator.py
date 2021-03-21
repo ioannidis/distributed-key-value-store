@@ -16,24 +16,24 @@ class DataGenerator:
         return self.data
 
     def generate(self):
-        for i in range(int(self.options['n'])):
+        for i in range(int(self.options['n']) - 89):
             self.depth = random.randint(0, int(self.options['d']))
             self.maxKeys = random.randint(0, int(self.options['m']))
 
-            self.d = f'person{i}:' + str(self.dict_helper())
+            self.d = {f'person{i}': {}}
+            self.dict_helper(self.d, f'person{i}')
             self.data.append(self.d)
 
-    def dict_helper(self):
+    def dict_helper(self, lvl, key):
 
         # print(self.d)
         if not self.depth:
-            return ' { } '
+            return
 
         self.depth -= 1
 
         selected_keys = set()
-        s = ' { '
-        for i in range(self.maxKeys):
+        for _ in range(self.maxKeys):
 
             while True:
                 random_key = random.choice(self.keys)
@@ -41,19 +41,14 @@ class DataGenerator:
                     break
             selected_keys.add(random_key[0])
 
-            if self.depth == 0:
-                s = s + random_key[0] + ' : ' + str(self.get_fake_value(random_key[1]))
+            if random.random() > 0.7:
+                lvl[key][random_key[0]] = self.get_fake_value(random_key[1])
             else:
-                if random.random() > 0.65:
-                    s = s + random_key[0] + ' : ' + str(self.get_fake_value(random_key[1]))
+                if self.depth == 0:
+                    lvl[key][random_key[0]] = self.get_fake_value(random_key[1])
                 else:
-                    s = s + random_key[0] + ' : ' + self.dict_helper()
-
-            if i < self.maxKeys-1:
-                s += ' ; '
-
-        s += ' } '
-        return s
+                    lvl[key][random_key[0]] = {}
+                    self.dict_helper(lvl[key], random_key[0])
 
 
     def get_fake_value(self, type):
