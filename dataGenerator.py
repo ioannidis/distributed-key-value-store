@@ -20,7 +20,7 @@ class DataGenerator:
             self.depth = random.randint(0, int(self.options['d']))
             self.maxKeys = random.randint(0, int(self.options['m']))
 
-            self.d = f'person{i}:' + str(self.dict_helper())
+            self.d = f'"person{i}":' + str(self.dict_helper())
             self.data.append(self.d)
 
     def dict_helper(self):
@@ -41,13 +41,14 @@ class DataGenerator:
                     break
             selected_keys.add(random_key[0])
 
+            key = f'"{random_key[0]}"'
             if self.depth == 0:
-                s = s + random_key[0] + ' : ' + str(self.get_fake_value(random_key[1]))
+                s = s + key + ' : ' + str(self.get_fake_value(random_key[1]))
             else:
                 if random.random() > 0.65:
-                    s = s + random_key[0] + ' : ' + str(self.get_fake_value(random_key[1]))
+                    s = s + key + ' : ' + str(self.get_fake_value(random_key[1]))
                 else:
-                    s = s + random_key[0] + ' : ' + self.dict_helper()
+                    s = s + key + ' : ' + self.dict_helper()
 
             if i < self.maxKeys-1:
                 s += ' ; '
@@ -59,7 +60,7 @@ class DataGenerator:
     def get_fake_value(self, type):
         if type == 'string':
             placeholder = '?' * random.randint(1, int(self.options['l']))
-            return self.fake.bothify(text=placeholder)
+            return f'"{self.fake.bothify(text=placeholder)}"'
         elif type == 'int':
             return random.randint(0, 1000)
         elif type == 'float':

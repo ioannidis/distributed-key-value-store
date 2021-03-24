@@ -4,6 +4,8 @@ import select
 import collections
 import sys
 import getopt
+import json
+import tokenize
 
 
 available_options = "s:i:k:"
@@ -35,6 +37,7 @@ for c in configuration:
     except socket.error as err:
         print(str(err) + " " + ip + ":" + str(port))
 
+# Check if there are enough
 # if len(sockets) < int(options['k']):
 #     print('[ERROR] Number of servers is lower than the replication number')
 #     while sockets:
@@ -43,12 +46,24 @@ for c in configuration:
 #     exit()
 
 
-f = open(options['i'], 'r')
-data = f.readlines()
-f.close()
+def load_data():
+    f = open(options['i'], 'r')
+    data, line = [], []
+    for token in tokenize.generate_tokens(f.readline):
+        if token[0] == tokenize.NEWLINE:
+            data.append("".join(line))
+            line = []
+        elif token[0] == tokenize.OP and token[1] == ';':
+            line.append(',')
+        else:
+            line.append(token[1])
+    f.close()
+    return data
 
 
 def init_data():
+    data = load_data()
+    print(data)
     for d in data:
         for _ in range(int(options['k'])):
             cur_socket = sockets.popleft()
@@ -60,16 +75,20 @@ def init_data():
 def start_shell():
     while True:
         cmd = input('kvStore> ')
-        for _ in range(int(options['k'])):
+        if '!DISCONNECT' in cmd:
             cur_socket = sockets.popleft()
             cur_socket.send(cmd.encode('utf-8'))
-            print(cur_socket.recv(1024)) # Do stuff
-            sockets.append(cur_socket)
+        else:
+            for _ in range(int(options['k'])):
+                cur_socket = sockets.popleft()
+                cur_socket.send(cmd.encode('utf-8'))
+                print(cur_socket.recv(1024)) # Do stuff
+                sockets.append(cur_socket)
 
 
 
 
-# init_data()
+init_data()
 start_shell()
 
 # user_input = input('Write your message: ')

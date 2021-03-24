@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 import pickle
+from trie import TrieNode
 
 
 available_options = "a:p:"
@@ -72,8 +73,9 @@ def accept_payload():
     global conn
     global address
 
+    store = TrieNode('*')
+
     connected = True
-    print('aaaaaaaaaaaaaaa')
     while connected:
         payload = conn.recv(1024).decode('utf-8')
         if payload:
@@ -91,6 +93,13 @@ def accept_payload():
             elif 'PUT' in payload:
                 print('PUT received')
                 print(f"[{address}] {payload}")
+                req_method, data = payload.split(' ')
+                print(req_method)
+                print(data)
+                key, value = data.split(':', 1)
+                value = json.loads(value)
+                print(key)
+                print(value)
                 conn.send("OK - 200 ".encode('utf-8'))
             elif 'GET' in payload:
                 pass
