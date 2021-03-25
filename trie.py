@@ -128,15 +128,15 @@ def load_data():
     f.close()
     return data
 
-if __name__ == '__main__':
-    root = TrieNode('*', None)
+# if __name__ == '__main__':
+#     root = TrieNode('*', None)
 
-    for d in load_data():
-        key, value = d.split(':', 1)
-        key = key[1:-1]
-        value = json.loads(value)
-        # print(value)
-        root.insert(key, value)
+    # for d in load_data():
+    #     key, value = d.split(':', 1)
+    #     key = key[1:-1]
+    #     value = json.loads(value)
+    #     # print(value)
+    #     root.insert(key, value)
 
 
     # print(root.char)

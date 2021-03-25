@@ -1,4 +1,6 @@
+import errno
 import itertools
+import pickle
 import socket
 import select
 import collections
@@ -7,6 +9,7 @@ import getopt
 import json
 import tokenize
 
+from utils.request import Request
 
 available_options = "s:i:k:"
 options = collections.defaultdict()
@@ -66,24 +69,47 @@ def init_data():
     print(data)
     for d in data:
         for _ in range(int(options['k'])):
+            req = Request('PUT', d)
+
             cur_socket = sockets.popleft()
-            cur_socket.sendall(('PUT ' + d).encode('utf-8'))
-            cur_socket.recv(1024)  # Do stuff
+
+            cur_socket.send(req.get_options())
+            cur_socket.recv(100)
+
+            cur_socket.send(req.get_request())
+            print(cur_socket.recv(1024))
+
             sockets.append(cur_socket)
 
 
 def start_shell():
     while True:
-        cmd = input('kvStore> ')
+        cmd = input('kvStore> ').strip()
+
         if '!DISCONNECT' in cmd:
             cur_socket = sockets.popleft()
             cur_socket.send(cmd.encode('utf-8'))
         else:
+            req_type, payload = cmd.split(' ', 1)
             for _ in range(int(options['k'])):
-                cur_socket = sockets.popleft()
-                cur_socket.send(cmd.encode('utf-8'))
-                print(cur_socket.recv(1024)) # Do stuff
-                sockets.append(cur_socket)
+                try:
+                    req = Request(req_type, payload)
+
+                    cur_socket = sockets.popleft()
+
+                    cur_socket.send(req.get_options())
+                    print(pickle.loads(cur_socket.recv(1024)))
+
+                    cur_socket.send(req.get_request())
+                    print(pickle.loads(cur_socket.recv(5000)))
+
+                    sockets.append(cur_socket)
+                except socket.error as e:
+                    print('Socket error')
+                except IOError as e:
+                    if e.errno == errno.EPIPE:
+                        print('Server is unreachable')
+                        sockets.append(cur_socket)
 
 
 

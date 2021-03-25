@@ -8,7 +8,7 @@ import threading
 import time
 import pickle
 from trie import TrieNode
-
+from utils.response import Response
 
 available_options = "a:p:"
 options = collections.defaultdict()
@@ -77,36 +77,45 @@ def accept_payload():
 
     connected = True
     while connected:
-        payload = conn.recv(1024).decode('utf-8')
-        if payload:
-            if '!DISCONNECT' in payload:
+        # Receive OPTION request
+        req = conn.recv(100)
+        options = pickle.loads(req)
+        res = Response()
+        conn.send(res.get_response())
+        # Receive request
+        req = conn.recv(options['req_size'])
+        req = pickle.loads(req)
+
+        if req:
+            if req['req_type'] == 'PUT':
+                print(f"[{address} | PUT] {req['payload']}")
+
+                key, value = req['payload'].split(':', 1)
+                store.insert(key[1:-1], json.loads(value))
+
+                res = Response()
+                conn.send(res.get_response())
+            elif req['req_type'] == 'GET':
+                print(f"[{address} | GET] {req['payload']}")
+
+                node = store.find(req['payload'])
+                if node:
+                    result = {}
+                    node.res_builder(node, '', result, 0)
+
+                    res = Response(200, 'OK', result)
+                else:
+                    res = Response(404, 'NOT FOUND')
+                conn.send(res.get_response())
+
+            elif req['req_type'] == 'DELETE':
+                print(f"[{address} | DELETE] {req['payload']}")
+            elif req['req_type'] == 'QUERY':
+                print(f"[{address} | QUERY] {req['payload']}")
+            elif req['req_type'] == 'COMMAND':
                 connected = False
                 conn.close()
-            elif 'OPTIONS' in payload:
-                print('OPTIONS received')
-                response = {
-                    'code': 200,
-                    'status': 'Success'
-                }
-                response = json.dumps(response)
-                conn.send(response.encode('utf-8'))
-            elif 'PUT' in payload:
-                print('PUT received')
-                print(f"[{address}] {payload}")
-                req_method, data = payload.split(' ')
-                print(req_method)
-                print(data)
-                key, value = data.split(':', 1)
-                value = json.loads(value)
-                print(key)
-                print(value)
-                conn.send("OK - 200 ".encode('utf-8'))
-            elif 'GET' in payload:
-                pass
-            elif 'DELETE' in payload:
-                pass
-            elif 'QUERY' in payload:
-                pass
+                exit()
             else:
                 print('FUCK YOU')
                 conn.send("NOT FOUND - 404 ".encode('utf-8'))
