@@ -100,8 +100,11 @@ def accept_payload():
 
                 node = store.find(req['payload'])
                 if node:
-                    result = {}
-                    node.res_builder(node, '', result, 0)
+                    if not isinstance(node, TrieNode):
+                        result = node
+                    else:
+                        result = {}
+                        node.res_builder(node, '', result, 0)
 
                     res = Response(200, 'OK', result)
                 else:
@@ -110,15 +113,37 @@ def accept_payload():
 
             elif req['req_type'] == 'DELETE':
                 print(f"[{address} | DELETE] {req['payload']}")
+
+                if store.remove(req['payload']):
+                    res = Response(200, 'OK')
+                else:
+                    res = Response(404, 'NOT FOUND')
+                conn.send(res.get_response())
+
             elif req['req_type'] == 'QUERY':
                 print(f"[{address} | QUERY] {req['payload']}")
+
+                node = store.find_path(req['payload'])
+                if node:
+                    if not isinstance(node, TrieNode):
+                        result = node
+                    else:
+                        result = {}
+                        node.res_builder(node, '', result, 0)
+
+                    res = Response(200, 'OK', result)
+                else:
+                    res = Response(404, 'NOT FOUND')
+                conn.send(res.get_response())
+
             elif req['req_type'] == 'COMMAND':
                 connected = False
                 conn.close()
                 exit()
+
             else:
-                print('FUCK YOU')
-                conn.send("NOT FOUND - 404 ".encode('utf-8'))
+                res = Response(400, 'BAD REQUEST')
+                conn.send(res.get_response())
 
 
 

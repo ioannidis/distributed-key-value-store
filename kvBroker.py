@@ -1,12 +1,9 @@
 import errno
-import itertools
 import pickle
 import socket
-import select
 import collections
 import sys
 import getopt
-import json
 import tokenize
 
 from utils.request import Request
@@ -66,7 +63,6 @@ def load_data():
 
 def init_data():
     data = load_data()
-    print(data)
     for d in data:
         for _ in range(int(options['k'])):
             req = Request('PUT', d)
@@ -77,39 +73,105 @@ def init_data():
             cur_socket.recv(100)
 
             cur_socket.send(req.get_request())
-            print(cur_socket.recv(1024))
+            cur_socket.recv(1024)
 
             sockets.append(cur_socket)
+
+
+def print_result(query, results):
+    if 200 in results:
+        print(f'{query} : {results[200]}')
+    elif 404 in results:
+        print(f'{query} : NOT FOUND')
+    elif 400 in results:
+        print(f'BAD REQUEST')
 
 
 def start_shell():
     while True:
         cmd = input('kvStore> ').strip()
+        req_type, payload = cmd.split(' ', 1)
 
         if '!DISCONNECT' in cmd:
             cur_socket = sockets.popleft()
             cur_socket.send(cmd.encode('utf-8'))
+
         else:
-            req_type, payload = cmd.split(' ', 1)
-            for _ in range(int(options['k'])):
-                try:
-                    req = Request(req_type, payload)
+            if req_type == 'PUT':
+                for _ in range(int(options['k'])):
+                    try:
+                        req = Request(req_type, payload)
 
-                    cur_socket = sockets.popleft()
+                        cur_socket = sockets.popleft()
 
-                    cur_socket.send(req.get_options())
-                    print(pickle.loads(cur_socket.recv(1024)))
+                        cur_socket.send(req.get_options())
+                        print(pickle.loads(cur_socket.recv(100)))
 
-                    cur_socket.send(req.get_request())
-                    print(pickle.loads(cur_socket.recv(5000)))
+                        cur_socket.send(req.get_request())
+                        print(pickle.loads(cur_socket.recv(5000)))
 
-                    sockets.append(cur_socket)
-                except socket.error as e:
-                    print('Socket error')
-                except IOError as e:
-                    if e.errno == errno.EPIPE:
-                        print('Server is unreachable')
                         sockets.append(cur_socket)
+                    except socket.error as e:
+                        print('Socket error')
+                    except IOError as e:
+                        if e.errno == errno.EPIPE:
+                            print('Server is unreachable')
+
+            elif req_type == 'GET' or 'QUERY':
+                result = {}
+                for _ in range(len(sockets)):
+                    try:
+                        req = Request(req_type, payload)
+
+                        cur_socket = sockets.popleft()
+
+                        cur_socket.send(req.get_options())
+                        pickle.loads(cur_socket.recv(100))
+
+                        cur_socket.send(req.get_request())
+                        res = pickle.loads(cur_socket.recv(5000))
+
+                        sockets.append(cur_socket)
+
+                        result[res['code']] = res['payload']
+
+                    except socket.error as e:
+                        print('Socket error')
+                    except IOError as e:
+                        if e.errno == errno.EPIPE:
+                            print('Server is unreachable')
+
+                print_result(payload, result)
+
+            else:
+                if len(configuration) != len(sockets):
+                    print('[WARNING] Cannot perform delete operation - One or more servers may be unavailable')
+                else:
+                    result = {}
+                    for _ in range(len(sockets)):
+                        try:
+                            req = Request(req_type, payload)
+
+                            cur_socket = sockets.popleft()
+
+                            cur_socket.send(req.get_options())
+                            pickle.loads(cur_socket.recv(100))
+
+                            cur_socket.send(req.get_request())
+                            res = pickle.loads(cur_socket.recv(5000))
+
+                            sockets.append(cur_socket)
+
+                            result[res['code']] = res['payload']
+
+                        except socket.error as e:
+                            print('Socket error')
+                        except IOError as e:
+                            if e.errno == errno.EPIPE:
+                                print('Server is unreachable')
+
+                    print_result(payload, result)
+
 
 
 

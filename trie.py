@@ -65,7 +65,10 @@ class TrieNode:
 
             if not levels:
                 if self.is_key:
-                    return self.value
+                    if self.value:
+                        return self.value
+                    else:
+                        return '{}'
                 return
             else:
                 return self.value.search(levels[0], levels[1:])
@@ -75,9 +78,12 @@ class TrieNode:
 
         return self.children[key[0]].search(key[1:], levels)
 
-    def find(self, s):
+    def find_path(self, s):
         s = s.split('.')
         return self.search(s[0], s[1:])
+
+    def find(self, s):
+        return self.search(s)
 
     # Res builder pre-order
     def res_builder(self, node, s, branch, depth):
@@ -88,8 +94,6 @@ class TrieNode:
                 branch[temp_s] = {}
                 self.res_builder(node.value, '', branch[temp_s], depth + 1)
             else:
-                temp_s = s
-                # temp_s += ':'+ str(node.value) + '}' * depth
                 branch[s] = node.value
 
         else:
