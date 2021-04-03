@@ -71,7 +71,10 @@ class KvBroker:
 
     def print_result(self, query, results):
         if 200 in results:
-            print(f'{query} : {results[200]}')
+            if results[200]:
+                print(f'{query} : {results[200]}')
+            else:
+                print(f'{query} : ''{''}')
         elif 404 in results:
             print(f'{query} : NOT FOUND')
         elif 400 in results:

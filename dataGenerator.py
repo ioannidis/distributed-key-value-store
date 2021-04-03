@@ -64,6 +64,6 @@ class DataGenerator:
         elif type == 'int':
             return random.randint(0, 1000)
         elif type == 'float':
-            return random.uniform(0, 100)
+            return round(random.uniform(0, 100), 3)
         else:
             return True if random.random() > 0.5 else False

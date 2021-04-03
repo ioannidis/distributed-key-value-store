@@ -1,12 +1,10 @@
-import logging
 import socket
 import collections
 import getopt
 import json
 import sys
-import threading
-import time
 import pickle
+
 from trie import TrieNode
 from utils.response import Response
 
@@ -28,7 +26,7 @@ class KvServer:
         try:
             return socket.socket()
         except socket.error as msg:
-            print("Socket creation error: " + str(msg))
+            print("[Error] Socket creation error: " + str(msg))
 
     # Binding the socket and listening for connections
     def _bind_socket(self):
@@ -37,7 +35,7 @@ class KvServer:
             self._socket.bind(self._address)
             self._socket.listen(5)
         except socket.error as msg:
-            print("Socket Binding error" + str(msg) + "\n" + "Retrying...")
+            print("[Error] Socket binding error" + str(msg) + "\n" + "Retrying...")
             self._bind_socket()
 
     # Handling connection from multiple clients and saving to a list
@@ -46,8 +44,8 @@ class KvServer:
         while True:
             try:
                 self._conn, self._broker_address = self._socket.accept()
-                self._socket.setblocking(1)  # prevents timeout
-                print("Connection has been established :" + self._broker_address[0])
+                self._socket.setblocking(1)
+                print("[Info] Connection has been established :" + self._broker_address[0])
                 self._accept_payload()
 
             except:
@@ -72,7 +70,7 @@ class KvServer:
                     print(f"[{self._broker_address} | PUT] {req['payload']}")
 
                     key, value = req['payload'].split(':', 1)
-                    store.insert(key[1:-1], json.loads(value))
+                    store.insert(key.strip('"'), json.loads(value))
 
                     res = Response()
                     self._conn.send(res.get_response())
@@ -88,7 +86,10 @@ class KvServer:
                             result = {}
                             node.res_builder(node, '', result, 0)
 
-                        res = Response(200, 'OK', result)
+                            if result:
+                                res = Response(200, 'OK', json.dumps(result).replace(',', ';'))
+                            else:
+                                res = Response(200, 'OK', result)
                     else:
                         res = Response(404, 'NOT FOUND')
                     self._conn.send(res.get_response())
@@ -113,7 +114,7 @@ class KvServer:
                             result = {}
                             node.res_builder(node, '', result, 0)
 
-                        res = Response(200, 'OK', result)
+                        res = Response(200, 'OK', json.dumps(result).replace(',', ';'))
                     else:
                         res = Response(404, 'NOT FOUND')
                     self._conn.send(res.get_response())
@@ -126,6 +127,9 @@ class KvServer:
                 else:
                     res = Response(400, 'BAD REQUEST')
                     self._conn.send(res.get_response())
+
+    def tokenize(self, result):
+        return result.replace(',', ';')
 
 
 if __name__ == '__main__':
