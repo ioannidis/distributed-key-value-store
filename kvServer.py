@@ -4,8 +4,10 @@ import getopt
 import json
 import sys
 import pickle
+from json import JSONDecodeError
 
 from trie import TrieNode
+from utils.parser import Parser
 from utils.response import Response
 
 
@@ -18,6 +20,7 @@ class KvServer:
         self._broker_address = None
         self._socket = self._create_socket()
         self._conn = None
+        self._store = None
         self._bind_socket()
         self._accepting_connections()
 
@@ -44,15 +47,15 @@ class KvServer:
         while True:
             try:
                 self._conn, self._broker_address = self._socket.accept()
-                self._socket.setblocking(1)
+                self._socket.setblocking(True)
                 print("[Info] Connection has been established :" + self._broker_address[0])
-                self._accept_payload()
+                self._request_handler()
 
             except:
                 print("[Info] KvBroker has been disconnected!")
 
-    def _accept_payload(self):
-        store = TrieNode('*', is_root=True)
+    def _request_handler(self):
+        self._store = TrieNode('*', is_root=True)
 
         connected = True
         while connected:
@@ -61,63 +64,26 @@ class KvServer:
             options = pickle.loads(req)
             res = Response()
             self._conn.send(res.get_response())
+
             # Receive request
             req = self._conn.recv(options['req_size'])
             req = pickle.loads(req)
 
             if req:
                 if req['req_type'] == 'PUT':
-                    print(f"[{self._broker_address} | PUT] {req['payload']}")
-
-                    key, value = req['payload'].split(':', 1)
-                    store.insert(key.strip('"'), json.loads(value))
-
-                    res = Response()
-                    self._conn.send(res.get_response())
+                    self._put_mapping(req)
 
                 elif req['req_type'] == 'GET':
-                    print(f"[{self._broker_address} | GET] {req['payload']}")
-
-                    node = store.find(req['payload'])
-                    if node:
-                        if not isinstance(node, TrieNode):
-                            result = node
-                        else:
-                            result = {}
-                            node.res_builder(node, '', result, 0)
-
-                            if result:
-                                res = Response(200, 'OK', json.dumps(result).replace(',', ';'))
-                            else:
-                                res = Response(200, 'OK', result)
-                    else:
-                        res = Response(404, 'NOT FOUND')
-                    self._conn.send(res.get_response())
+                    self._get_mapping(req)
 
                 elif req['req_type'] == 'DELETE':
-                    print(f"[{self._broker_address} | DELETE] {req['payload']}")
-
-                    if store.remove(req['payload']):
-                        res = Response(200, 'OK')
-                    else:
-                        res = Response(404, 'NOT FOUND')
-                    self._conn.send(res.get_response())
+                    self._delete_mapping(req)
 
                 elif req['req_type'] == 'QUERY':
-                    print(f"[{self._broker_address} | QUERY] {req['payload']}")
+                    self._query_mapping(req)
 
-                    node = store.find_path(req['payload'])
-                    if node:
-                        if not isinstance(node, TrieNode):
-                            result = node
-                        else:
-                            result = {}
-                            node.res_builder(node, '', result, 0)
-
-                        res = Response(200, 'OK', json.dumps(result).replace(',', ';'))
-                    else:
-                        res = Response(404, 'NOT FOUND')
-                    self._conn.send(res.get_response())
+                elif req['req_type'] == 'HEART_BEAT':
+                    self._heart_beat_mapping()
 
                 elif req['req_type'] == 'COMMAND':
                     connected = False
@@ -128,9 +94,91 @@ class KvServer:
                     res = Response(400, 'BAD REQUEST')
                     self._conn.send(res.get_response())
 
-    def tokenize(self, result):
-        return result.replace(',', ';')
+    # GET handler
+    def _get_mapping(self, req):
+        print(f"[{self._broker_address} | GET] {req['payload']}")
 
+        node = self._store.find(req['payload'])
+        if node:
+            if not isinstance(node, TrieNode):
+                result = node
+                res = Response(200, 'OK', result)
+            else:
+                result = {}
+                node.res_builder(node, '', result, 0)
+
+                if result:
+                    res = Response(200, 'OK', json.dumps(result).replace(',', ';'))
+                else:
+                    res = Response(200, 'OK', result)
+        else:
+            res = Response(404, 'NOT FOUND')
+
+        # Send response
+        self._conn.send(res.get_options())
+        self._conn.recv(100)
+        self._conn.send(res.get_response())
+
+    # QUERY handler
+    def _query_mapping(self, req):
+        print(f"[{self._broker_address} | QUERY] {req['payload']}")
+
+        node = self._store.find_path(req['payload'])
+        if node:
+            if not isinstance(node, TrieNode):
+                result = node
+            else:
+                result = {}
+                node.res_builder(node, '', result, 0)
+
+            res = Response(200, 'OK', json.dumps(result).replace(',', ';'))
+        else:
+            res = Response(404, 'NOT FOUND')
+
+        # Send response
+        self._conn.send(res.get_options())
+        self._conn.recv(100)
+        self._conn.send(res.get_response())
+
+    # PUT handler
+    def _put_mapping(self, req):
+        print(f"[{self._broker_address} | PUT] {req['payload']}")
+
+        key, value = req['payload'].split(':', 1)
+
+        try:
+            value = json.loads(Parser.serialize(value))
+            # Store data
+            self._store.insert(key.strip('"'), value)
+            # Prepare response
+            res = Response()
+        except JSONDecodeError as e:
+            # Prepare response
+            res = Response(422, 'INVALID DATA', f'Failed at pos {e.pos} - {e.msg}')
+
+        # Send response
+        self._conn.send(res.get_options())
+        self._conn.recv(100)
+        self._conn.send(res.get_response())
+
+    # DELETE handler
+    def _delete_mapping(self, req):
+        print(f"[{self._broker_address} | DELETE] {req['payload']}")
+
+        if self._store.remove(req['payload']):
+            res = Response(200, 'OK')
+        else:
+            res = Response(404, 'NOT FOUND')
+
+        # Send response
+        self._conn.send(res.get_options())
+        self._conn.recv(100)
+        self._conn.send(res.get_response())
+
+    # Heart beat handler
+    def _heart_beat_mapping(self):
+        res = Response()
+        self._conn.send(res.get_response())
 
 if __name__ == '__main__':
     available_options = "a:p:"

@@ -1,12 +1,17 @@
 import errno
 import pickle
+import random
 import socket
 import collections
 import sys
 import getopt
+import threading
+import time
 import tokenize
 
+from utils.parser import Parser
 from utils.request import Request
+from utils.response import Response
 
 
 class KvBroker:
@@ -22,15 +27,15 @@ class KvBroker:
         configuration = f.readlines()
         f.close()
 
-        sockets = collections.deque([])
+        sockets = {}
         for c in configuration:
             try:
                 ip, port = c.split(' ')
                 new_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 new_socket.connect((ip, int(port)))
-                sockets.append(new_socket)
-            except socket.error as err:
-                print(str(err) + " " + ip + ":" + str(port))
+                sockets[(ip, int(port))] = new_socket
+            except socket.error as e:
+                print(str(e) + " " + ip + ":" + str(port))
 
         # Check if there are enough
         # if len(sockets) < int(self._options['k']):
@@ -40,34 +45,33 @@ class KvBroker:
         return configuration, sockets
 
     def load_data(self):
-        f = open(self._options['i'], 'r')
-        data, line = [], []
-        for token in tokenize.generate_tokens(f.readline):
-            if token[0] == tokenize.NEWLINE:
-                data.append("".join(line))
-                line = []
-            elif token[0] == tokenize.OP and token[1] == ';':
-                line.append(',')
-            else:
-                line.append(token[1])
-        f.close()
-        return data
+        return Parser.file_serializer(self._options['i'])
 
     def init_data(self):
         data = self.load_data()
         for d in data:
             req = Request('PUT', d)
-            for _ in range(int(options['k'])):
+            rdm_sockets = random.sample(list(self._sockets.keys()), int(self._options['k']))
 
-                cur_socket = self._sockets.popleft()
+            for i in rdm_sockets:
+                cur_socket = self._sockets[i]
 
+                # Send request's OPTIONS
                 cur_socket.send(req.get_options())
                 cur_socket.recv(100)
 
+                # Send request
                 cur_socket.send(req.get_request())
-                cur_socket.recv(1024)
 
-                self._sockets.append(cur_socket)
+                # Receive response's OPTIONS
+                res_options = pickle.loads(cur_socket.recv(100))
+                # Send confirmation
+                confirm = Response()
+                cur_socket.send(confirm.get_response())
+
+                # Receive response
+                res = pickle.loads(cur_socket.recv(res_options['res_size']))
+
 
     def print_result(self, query, results):
         if 200 in results:
@@ -79,95 +83,197 @@ class KvBroker:
             print(f'{query} : NOT FOUND')
         elif 400 in results:
             print(f'BAD REQUEST')
+        elif 422 in results:
+            print(f'[Error | Invalid data format] {results[422]}')
 
+    # Start the terminal interface for accepting new requests
     def start_shell(self):
         while True:
             cmd = input('kvStore> ').strip()
-            req_type, payload = cmd.split(' ', 1)
 
-            if '!DISCONNECT' in cmd:
-                cur_socket = self._sockets.popleft()
-                cur_socket.send(cmd.encode('utf-8'))
+            if not cmd:
+                continue
+
+            if cmd == '!DISCONNECT':
+               pass
 
             else:
+                self._heart_beat()
+                is_replication_valid = self._is_replication_valid()
+                req_type, payload = cmd.split(' ', 1)
+
                 if req_type == 'PUT':
                     req = Request(req_type, payload)
-                    for _ in range(int(self._options['k'])):
-                        try:
-                            cur_socket = self._sockets.popleft()
+                    rdm_sockets = random.sample(list(self._sockets.keys()), int(self._options['k']))
 
-                            cur_socket.send(req.get_options())
-                            pickle.loads(cur_socket.recv(100))
+                    result = {}
+                    for ip in rdm_sockets:
+                        self._stream(req, ip, result)
+                        # try:
+                        #     cur_socket = self._sockets[i]
+                        #
+                        #     # Send request OPTIONS
+                        #     cur_socket.send(req.get_options())
+                        #     pickle.loads(cur_socket.recv(100))
+                        #
+                        #     # Send request
+                        #     cur_socket.send(req.get_request())
+                        #
+                        #     # Receive response's OPTIONS
+                        #     res_options = pickle.loads(cur_socket.recv(100))
+                        #     # Send confirmation
+                        #     confirm = Response()
+                        #     cur_socket.send(confirm.get_response())
+                        #
+                        #     # Receive response
+                        #     res = pickle.loads(cur_socket.recv(res_options['res_size']))
+                        #
+                        #     result[res['code']] = res['payload']
+                        #
+                        # except socket.error as e:
+                        #     print(f'[Error] {e}')
+                        # except EOFError as e:
+                        #     pass
+                        #     del self._sockets[i]
 
-                            cur_socket.send(req.get_request())
-                            pickle.loads(cur_socket.recv(5000))
-
-                            self._sockets.append(cur_socket)
-                        except socket.error as e:
-                            print('Socket error')
-                        except IOError as e:
-                            if e.errno == errno.EPIPE:
-                                print('Server is unreachable')
+                    self.print_result(payload, result)
 
                 elif req_type == 'GET' or req_type == 'QUERY':
                     result = {}
-                    for _ in range(len(self._sockets)):
-                        try:
-                            req = Request(req_type, payload)
+                    req = Request(req_type, payload)
 
-                            cur_socket = self._sockets.popleft()
+                    for ip in self._sockets.keys():
+                        self._stream(req, ip, result)
+                        # try:
+                        #     # Send request's OPTIONS
+                        #     cur_socket.send(req.get_options())
+                        #     pickle.loads(cur_socket.recv(100))
+                        #
+                        #     # Send requests
+                        #     cur_socket.send(req.get_request())
+                        #
+                        #     # Receive response's OPTIONS
+                        #     res_options = pickle.loads(cur_socket.recv(100))
+                        #     # Send confirmation
+                        #     confirm = Response()
+                        #     cur_socket.send(confirm.get_response())
+                        #
+                        #     # Receive response
+                        #     res = pickle.loads(cur_socket.recv(res_options['res_size']))
+                        #
+                        #     result[res['code']] = res['payload']
+                        #
+                        # except socket.error as e:
+                        #     print(f'[Error] {e}')
+                        # except EOFError as e:
+                        #     pass
+                        #     # del self._sockets[ip]
 
-                            cur_socket.send(req.get_options())
-                            pickle.loads(cur_socket.recv(100))
-
-                            cur_socket.send(req.get_request())
-                            res = pickle.loads(cur_socket.recv(5000))
-
-                            self._sockets.append(cur_socket)
-
-                            result[res['code']] = res['payload']
-
-                        except socket.error as e:
-                            print('Socket error')
-                        except IOError as e:
-                            if e.errno == errno.EPIPE:
-                                print('Server is unreachable')
+                    if not is_replication_valid:
+                        print(f'[WARNING] Data may be inconsistent. More than {int(self._options["k"])} servers are unavailable!')
 
                     self.print_result(payload, result)
 
                 elif req_type == 'DELETE':
-                    if len(self._configuration) != len(self._sockets):
-                        print('[WARNING] Cannot perform delete operation - One or more servers may be unavailable')
-                    else:
-                        result = {}
-                        for _ in range(len(self._sockets)):
-                            try:
-                                req = Request(req_type, payload)
+                    if not self._is_all_servers_available():
+                        print('[WARNING] Cannot perform delete operation. One or more servers are unavailable!')
+                        continue
 
-                                cur_socket = self._sockets.popleft()
-
-                                cur_socket.send(req.get_options())
-                                res = cur_socket.recv(100)
-                                if not res:
-                                    print('[WARNING] Cannot perform delete operation - One or more servers may be unavailable')
-                                    continue
-                                pickle.loads(res)
-
-                                cur_socket.send(req.get_request())
-                                res = pickle.loads(cur_socket.recv(5000))
-
-                                self._sockets.append(cur_socket)
-
-                                result[res['code']] = res['payload']
-
-                            except socket.error as e:
-                                print('Socket error')
-                            except IOError as e:
-                                if e.errno == errno.EPIPE:
-                                    print('Server is unreachable')
+                    result = {}
+                    ip_address = list(self._sockets.keys())
+                    req = Request(req_type, payload)
+                    for ip in ip_address:
+                        self._stream(req, ip, result)
+                        # try:
+                        #
+                        #     cur_socket = self._sockets[ip]
+                        #
+                        #     # Send request's OPTIONS
+                        #     cur_socket.send(req.get_options())
+                        #     pickle.loads(cur_socket.recv(100))
+                        #
+                        #     # Send request
+                        #     cur_socket.send(req.get_request())
+                        #
+                        #     # Receive response's OPTIONS
+                        #     res_options = pickle.loads(cur_socket.recv(100))
+                        #     # Send confirmation
+                        #     confirm = Response()
+                        #     cur_socket.send(confirm.get_response())
+                        #
+                        #     # Receive response
+                        #     res = pickle.loads(cur_socket.recv(res_options['res_size']))
+                        #
+                        #     result[res['code']] = res['payload']
+                        #
+                        # except socket.error as e:
+                        #     print(f'[Error] {e}')
+                        # except EOFError as e:
+                        #     pass
+                        #     # del self._sockets[ip]
                 else:
                     pass
                     # TODO: na ftiakso auto edo
+
+    def _heart_beat(self):
+        req = Request('HEART_BEAT')
+
+        ip_address = list(self._sockets.keys())
+        for ip in ip_address:
+            try:
+                # Send request's OPTIONS
+                self._sockets[ip].send(req.get_options())
+                pickle.loads(self._sockets[ip].recv(100))
+
+                # Send request
+                self._sockets[ip].send(req.get_request())
+                # Receive response
+                pickle.loads(self._sockets[ip].recv(100))
+
+            except socket.error as e:
+                print(f'[Error] {e}')
+            except EOFError as e:
+                del self._sockets[ip]
+
+    # Check server availability
+    def _is_all_servers_available(self):
+        return len(self._sockets) == len(self._configuration)
+
+    # Check if replication rules are valid
+    def _is_replication_valid(self):
+        if len(self._sockets) < int(self._options['k']):
+            sys.exit('[Error] Not enough servers to support replication! Please restart the servers!')
+
+        return len(self._configuration) - len(self._sockets) < int(self._options['k'])
+
+    def _stream(self, req, ip,  result):
+        try:
+            cur_socket = self._sockets[ip]
+
+            # Send request OPTIONS
+            cur_socket.send(req.get_options())
+            pickle.loads(cur_socket.recv(100))
+
+            # Send request
+            cur_socket.send(req.get_request())
+
+            # Receive response's OPTIONS
+            res_options = pickle.loads(cur_socket.recv(100))
+            # Send confirmation
+            confirm = Response()
+            cur_socket.send(confirm.get_response())
+
+            # Receive response
+            res = pickle.loads(cur_socket.recv(res_options['res_size']))
+
+            result[res['code']] = res['payload']
+
+        except socket.error as e:
+            print(f'[Error] {e}')
+        except EOFError as e:
+            pass
+        #     del self._sockets[i]
+
 
 
 if __name__ == '__main__':
