@@ -101,7 +101,7 @@ class KvServer:
                 res = Response(200, 'OK', result)
             else:
                 result = {}
-                node.res_builder(node, '', result, 0)
+                node.res_builder('', result, 0)
 
                 if result:
                     res = Response(200, 'OK', json.dumps(result).replace(',', ';'))
@@ -123,7 +123,7 @@ class KvServer:
                 result = node
             else:
                 result = {}
-                node.res_builder(node, '', result, 0)
+                node.res_builder('', result, 0)
 
             res = Response(200, 'OK', json.dumps(result).replace(',', ';'))
         else:
