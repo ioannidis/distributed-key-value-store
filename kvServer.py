@@ -139,9 +139,13 @@ class KvServer:
         key, value = req['payload'].split(':', 1)
 
         try:
-            value = json.loads(Parser.serialize(value))
+            decoded_value = json.loads(Parser.serialize(value))
+
+            if isinstance(decoded_value, str):
+                raise JSONDecodeError(msg='Input does not follow the key:value format', doc=value, pos=0)
+
             # Store data
-            self._store.insert(key.strip('"'), value)
+            self._store.insert(key.strip('"'), decoded_value)
             # Prepare response
             res = Response()
         except JSONDecodeError as e:
