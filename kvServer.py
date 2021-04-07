@@ -1,3 +1,4 @@
+import argparse
 import socket
 import collections
 import getopt
@@ -15,8 +16,7 @@ from utils.response import Response
 class KvServer:
 
     def __init__(self, options) -> None:
-        self._options = options
-        self._address = (options['a'], int(options['p']))
+        self._address = (options.a, options.p)
         self._broker_address = None
         self._socket = self._create_socket()
         self._conn = None
@@ -41,8 +41,8 @@ class KvServer:
             print("[Error] Socket binding error" + str(msg) + "\n" + "Retrying...")
             self._bind_socket()
 
-    # Handling connection from multiple clients and saving to a list
-    # Closing previous connections when server.py file is restarted
+    # Accept new connections
+    # Closing previous connections when kvBroker file is restarted
     def _accepting_connections(self):
         while True:
             try:
@@ -54,6 +54,7 @@ class KvServer:
             except:
                 print("[Info] KvBroker has been disconnected!")
 
+    # Handle the incoming requests
     def _request_handler(self):
         self._store = TrieNode('*', is_root=True)
 
@@ -85,14 +86,9 @@ class KvServer:
                 elif req['req_type'] == 'HEART_BEAT':
                     self._heart_beat_mapping()
 
-                elif req['req_type'] == 'COMMAND':
-                    connected = False
-                    self._conn.close()
-                    exit()
-
                 else:
                     res = Response(400, 'BAD REQUEST')
-                    self._conn.send(res.get_response())
+                    self._send_response(res)
 
     # GET handler
     def _get_mapping(self, req):
@@ -115,9 +111,7 @@ class KvServer:
             res = Response(404, 'NOT FOUND')
 
         # Send response
-        self._conn.send(res.get_options())
-        self._conn.recv(100)
-        self._conn.send(res.get_response())
+        self._send_response(res)
 
     # QUERY handler
     def _query_mapping(self, req):
@@ -136,9 +130,7 @@ class KvServer:
             res = Response(404, 'NOT FOUND')
 
         # Send response
-        self._conn.send(res.get_options())
-        self._conn.recv(100)
-        self._conn.send(res.get_response())
+        self._send_response(res)
 
     # PUT handler
     def _put_mapping(self, req):
@@ -157,9 +149,7 @@ class KvServer:
             res = Response(422, 'INVALID DATA', f'Failed at pos {e.pos} - {e.msg}')
 
         # Send response
-        self._conn.send(res.get_options())
-        self._conn.recv(100)
-        self._conn.send(res.get_response())
+        self._send_response(res)
 
     # DELETE handler
     def _delete_mapping(self, req):
@@ -171,29 +161,26 @@ class KvServer:
             res = Response(404, 'NOT FOUND')
 
         # Send response
-        self._conn.send(res.get_options())
-        self._conn.recv(100)
-        self._conn.send(res.get_response())
+        self._send_response(res)
 
     # Heart beat handler
     def _heart_beat_mapping(self):
         res = Response()
         self._conn.send(res.get_response())
 
+    # Send OPTIONS and response
+    def _send_response(self, res):
+        self._conn.send(res.get_options())
+        self._conn.recv(100)
+        self._conn.send(res.get_response())
+
+
 if __name__ == '__main__':
-    available_options = "a:p:"
-    options = collections.defaultdict()
-    try:
-        args, values = getopt.getopt(sys.argv[1:], available_options)
+    args_parser = argparse.ArgumentParser(description='kvServer')
+    args_parser.add_argument('-a', '--ipAddress', dest='a', type=str, metavar='', required=True,
+                             help='Server\'s ip address.')
+    args_parser.add_argument('-p', '--port', dest='p', type=int, metavar='', required=True,
+                             help='Server\'s port.')
+    args = args_parser.parse_args()
 
-        for k, v in args:
-            options[k[1:]] = v
-
-    except getopt.error as err:
-        print(str(err))
-        sys.exit(2)
-
-    print(options.items())
-
-    kv_server = KvServer(options)
-
+    kv_server = KvServer(args)
