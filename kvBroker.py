@@ -14,7 +14,7 @@ class KvBroker:
     def __init__(self, options) -> None:
         self._options = options
         self._configuration, self._sockets = self.init_connections()
-        print(' === Welcome to kvBroker === ')
+        print('=== Welcome to kvBroker ===')
         self.init_data()
         self.start_shell()
 
@@ -77,10 +77,7 @@ class KvBroker:
 
     def print_result(self, query, results):
         if 200 in results:
-            if results[200]:
-                print(f'{query} : {results[200]}')
-            else:
-                print(f'{query} : ''{''}')
+            print(f'{query} : {results[200]}')
         elif 404 in results:
             print(f'{query} : NOT FOUND')
         elif 400 in results:
