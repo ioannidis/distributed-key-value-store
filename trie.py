@@ -67,7 +67,7 @@ class TrieNode:
                     if self.value:
                         return self.value
                     else:
-                        return '{}'
+                        return {}
                 return
             else:
                 if self.value:
@@ -95,7 +95,10 @@ class TrieNode:
                 branch[temp_s] = {}
                 self.value.res_builder('', branch[temp_s], depth + 1)
             else:
-                branch[s] = self.value
+                if self.value:
+                    branch[s] = self.value
+                else:
+                    branch[s] = {}
 
         else:
             for k, c in self.children.items():
