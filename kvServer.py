@@ -51,7 +51,7 @@ class KvServer:
                 print("[Info] Connection has been established :" + self._broker_address[0])
                 self._request_handler()
 
-            except:
+            except Exception as e:
                 print("[Info] KvBroker has been disconnected!")
 
     # Handle the incoming requests
@@ -95,18 +95,12 @@ class KvServer:
         print(f"[{self._broker_address} | GET] {req['payload']}")
 
         node = self._store.find(req['payload'])
-        if node:
-            if not isinstance(node, TrieNode):
-                result = node
-                res = Response(200, 'OK', result)
-            else:
-                result = {}
-                node.res_builder('', result, 0)
-
-                if result:
-                    res = Response(200, 'OK', json.dumps(result).replace(',', ';'))
-                else:
-                    res = Response(200, 'OK', result)
+        if isinstance(node, TrieNode):
+            result = {}
+            node.res_builder('', result, 0)
+            res = Response(200, 'OK', json.dumps(result).replace(',', ';'))
+        elif isinstance(node, str) or isinstance(node, dict):
+            res = Response(200, 'OK', json.dumps(node))
         else:
             res = Response(404, 'NOT FOUND')
 
@@ -118,14 +112,12 @@ class KvServer:
         print(f"[{self._broker_address} | QUERY] {req['payload']}")
 
         node = self._store.find_path(req['payload'])
-        if node:
-            if not isinstance(node, TrieNode):
-                result = node
-            else:
-                result = {}
-                node.res_builder('', result, 0)
-
+        if isinstance(node, TrieNode):
+            result = {}
+            node.res_builder('', result, 0)
             res = Response(200, 'OK', json.dumps(result).replace(',', ';'))
+        elif isinstance(node, str) or isinstance(node, dict):
+            res = Response(200, 'OK', json.dumps(node))
         else:
             res = Response(404, 'NOT FOUND')
 
