@@ -1,9 +1,6 @@
 import argparse
 import socket
-import collections
-import getopt
 import json
-import sys
 import pickle
 from json import JSONDecodeError
 
@@ -87,7 +84,7 @@ class KvServer:
                     self._heart_beat_mapping()
 
                 else:
-                    res = Response(400, 'BAD REQUEST')
+                    res = Response(400, 'BAD REQUEST', 'BAD REQUEST')
                     self._send_response(res)
 
     # GET handler
@@ -102,7 +99,7 @@ class KvServer:
         elif isinstance(node, str) or isinstance(node, dict):
             res = Response(200, 'OK', json.dumps(node))
         else:
-            res = Response(404, 'NOT FOUND')
+            res = Response(404, 'NOT FOUND', 'NOT FOUND')
 
         # Send response
         self._send_response(res)
@@ -116,10 +113,10 @@ class KvServer:
             result = {}
             node.res_builder('', result, 0)
             res = Response(200, 'OK', json.dumps(result).replace(',', ';'))
-        elif isinstance(node, str) or isinstance(node, dict):
+        elif isinstance(node, str) or isinstance(node, int) or isinstance(node, float) or isinstance(node, dict):
             res = Response(200, 'OK', json.dumps(node))
         else:
-            res = Response(404, 'NOT FOUND')
+            res = Response(404, 'NOT FOUND', 'NOT FOUND')
 
         # Send response
         self._send_response(res)
@@ -136,13 +133,18 @@ class KvServer:
             if isinstance(decoded_value, str):
                 raise JSONDecodeError(msg='Input does not follow the key:value format', doc=value, pos=0)
 
+            # If key already exists, remove it in order to store the incoming data
+            node = self._store.find(key.strip('"'))
+            if isinstance(node, TrieNode) or isinstance(node, str) or isinstance(node, int) or isinstance(node, float) or isinstance(node, dict):
+                self._store.remove(key.strip('"'))
+
             # Store data
             self._store.insert(key.strip('"'), decoded_value)
             # Prepare response
-            res = Response()
+            res = Response(201, 'OK', 'CREATED')
         except JSONDecodeError as e:
             # Prepare response
-            res = Response(422, 'INVALID DATA', f'Failed at pos {e.pos} - {e.msg}')
+            res = Response(422, 'ERROR - INVALID DATA', f'Failed at pos {e.pos} - {e.msg}')
 
         # Send response
         self._send_response(res)
@@ -152,9 +154,9 @@ class KvServer:
         print(f"[{self._broker_address} | DELETE] {req['payload']}")
 
         if self._store.remove(req['payload']):
-            res = Response(200, 'OK')
+            res = Response(200, 'OK', 'DELETED')
         else:
-            res = Response(404, 'NOT FOUND')
+            res = Response(404, 'NOT FOUND', 'IS NOT ROOT KEY')
 
         # Send response
         self._send_response(res)
