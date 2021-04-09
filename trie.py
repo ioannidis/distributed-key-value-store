@@ -70,7 +70,7 @@ class TrieNode:
                         return {}
                 return
             else:
-                if self.value:
+                if isinstance(self.value, TrieNode):
                     return self.value.search(levels[0], levels[1:])
                 return
 
