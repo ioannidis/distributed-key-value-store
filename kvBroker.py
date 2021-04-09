@@ -78,10 +78,12 @@ class KvBroker:
     def print_result(self, query, results):
         if 200 in results:
             print(f'{query} : {results[200]}')
+        elif 201 in results:
+            print(f'{results[201]}')
         elif 404 in results:
-            print(f'{query} : NOT FOUND')
+            print(f'{query} : {results[404]}')
         elif 400 in results:
-            print(f'BAD REQUEST')
+            print(f'{results[400]}')
         elif 422 in results:
             print(f'[Error | Invalid data format] {results[422]}')
 
@@ -129,10 +131,11 @@ class KvBroker:
                         continue
 
                     result = {}
-                    ip_address = list(self._sockets.keys())
                     req = Request(req_type, payload)
-                    for ip in ip_address:
+                    for ip in self._sockets.keys():
                         self._stream(req, ip, result)
+
+                    self.print_result(payload, result)
 
                 else:
                     print('[INFO] Invalid request type!')
@@ -199,9 +202,12 @@ class KvBroker:
 
 if __name__ == '__main__':
     args_parser = argparse.ArgumentParser(description='kvBroker')
-    args_parser.add_argument('-s', '--serverFile', dest='s', type=str, metavar='', required=True, help='The serverFile is a space separated list of server IPs and their respective ports that will be listening for queries and indexing commands.')
-    args_parser.add_argument('-i', '--dataToIndex', dest='i', type=str, metavar='', required=True, help='The dataToIndex is a file containing data that was generated using the data generator.')
-    args_parser.add_argument('-k', '--kReplication', dest='k', type=int, metavar='', required=True, help='The k value is the replication factor.')
+    args_parser.add_argument('-s', '--serverFile', dest='s', type=str, default='serverFile.txt', metavar='', required=True, help='The serverFile is a space separated list of server IPs and their respective ports that will be listening for queries and indexing commands.')
+    args_parser.add_argument('-i', '--dataToIndex', dest='i', type=str, default='dataToIndex.txt', metavar='', required=True, help='The dataToIndex is a file containing data that was generated using the data generator.')
+    args_parser.add_argument('-k', '--kReplication', dest='k', type=int, default=1, metavar='', required=True, help='The k value is the replication factor.')
     args = args_parser.parse_args()
+
+    if args.k < 1:
+        sys.exit('[Error] Replication factor should be greater equal to 1.')
 
     kv_broker = KvBroker(args)
