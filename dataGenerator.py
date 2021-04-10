@@ -1,4 +1,3 @@
-import collections
 import random
 from faker import Faker
 
@@ -6,51 +5,51 @@ from faker import Faker
 class DataGenerator:
 
     def __init__(self, options, keys):
-        self.options = options
-        self.keys = keys
-        self.data = []
+        self._options = options
+        self._keys = keys
+        self._data = []
 
-        self.fake = Faker()
+        self._fake = Faker()
 
     def get_data(self):
-        return self.data
+        return self._data
 
     def generate(self):
-        for i in range(int(self.options['n'])):
-            self.depth = random.randint(0, int(self.options['d']))
-            self.maxKeys = random.randint(0, int(self.options['m']))
+        for i in range(self._options.n):
+            depth = random.randint(0, self._options.d)
 
-            self.d = f'"person{i}":' + str(self.dict_helper())
-            self.data.append(self.d)
+            d = f'"person{i}":' + str(self.dict_helper(depth))
+            self._data.append(d)
 
-    def dict_helper(self):
+    def dict_helper(self, depth):
 
-        # print(self.d)
-        if not self.depth:
-            return ' { } '
+        if depth == -1:
+            return '{}'
 
-        self.depth -= 1
+        depth -= 1
+
+        max_keys = random.randint(0, self._options.m)
 
         selected_keys = set()
         s = ' { '
-        for i in range(self.maxKeys):
+        for i in range(max_keys):
 
             while True:
-                random_key = random.choice(self.keys)
+                random_key = random.choice(self._keys)
                 if random_key[0] not in selected_keys:
                     break
             selected_keys.add(random_key[0])
 
-            key = f'"{random_key[0]}"'
-            if self.depth == 0:
-                s = s + key + ' : ' + str(self.get_fake_value(random_key[1]))
+            key, key_type = f'"{random_key[0]}"', random_key[1]
+            if depth == -1:
+                s = s + key + ' : ' + str(self.get_fake_value(key_type))
             else:
-                if random.random() > 0.65:
-                    s = s + key + ' : ' + str(self.get_fake_value(random_key[1]))
+                if random.random() > 0.4:
+                    s = s + key + ' : ' + str(self.get_fake_value(key_type))
                 else:
-                    s = s + key + ' : ' + self.dict_helper()
+                    s = s + key + ' : ' + self.dict_helper(depth)
 
-            if i < self.maxKeys-1:
+            if i < max_keys-1:
                 s += ' ; '
 
         s += ' } '
@@ -59,8 +58,8 @@ class DataGenerator:
 
     def get_fake_value(self, type):
         if type == 'string':
-            placeholder = '?' * random.randint(1, int(self.options['l']))
-            return f'"{self.fake.bothify(text=placeholder)}"'
+            placeholder = '?' * random.randint(1, int(self._options.l))
+            return f'"{self._fake.bothify(text=placeholder)}"'
         elif type == 'int':
             return random.randint(0, 1000)
         elif type == 'float':
