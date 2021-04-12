@@ -45,7 +45,7 @@ class KvBroker:
 
     # Load and parse data from the given file
     def load_data(self):
-        return Parser.file_serializer(self._options.i)
+        return Parser.file_parser(self._options.i)
 
     # Initialize data with respect to replication factor
     def init_data(self):
@@ -104,6 +104,10 @@ class KvBroker:
                 req_type, payload = cmd.split(' ', 1)
 
                 if req_type == 'PUT':
+                    if self._is_replication_supported():
+                        print('[WARNING] Not enough servers to support replication! Please restart the servers!')
+                        continue
+
                     req = Request(req_type, payload)
                     rdm_sockets = random.sample(list(self._sockets.keys()), self._options.k)
 
@@ -168,10 +172,10 @@ class KvBroker:
 
     # Check if replication rules are valid
     def _is_replication_valid(self):
-        if len(self._sockets) < self._options.k:
-            sys.exit('[Error] Not enough servers to support replication! Please restart the servers!')
-
         return len(self._configuration) - len(self._sockets) < self._options.k
+
+    def _is_replication_supported(self):
+        return len(self._sockets) < self._options.k
 
     # Send data to the servers
     def _stream(self, req, ip,  result):
