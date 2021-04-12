@@ -5,6 +5,23 @@ import tokenize
 class Parser:
 
     @staticmethod
+    def file_parser(file):
+        try:
+            f = open(file, 'r')
+            data = []
+            while True:
+                line = f.readline()
+                if not line:
+                    break
+                data.append(line.strip())
+
+            f.close()
+            return data
+
+        except FileNotFoundError as e:
+            sys.exit(f'{e}')
+
+    @staticmethod
     def file_serializer(file):
         try:
             f = open(file, 'r')

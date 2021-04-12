@@ -23,6 +23,7 @@ class Response:
 
     def get_options(self):
         res = {
+            'req_type': 'OPTIONS',
             'res_size': len(self.response)
         }
 
