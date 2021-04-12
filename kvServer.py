@@ -2,10 +2,12 @@ import argparse
 import socket
 import json
 import pickle
+import string
 from json import JSONDecodeError
 
 from trie import TrieNode
 from utils.parser import Parser
+from utils.punctuation import Punctuation
 from utils.response import Response
 
 
@@ -123,15 +125,19 @@ class KvServer:
 
     # PUT handler
     def _put_mapping(self, req):
-        print(f"[{self._broker_address} | PUT] {req['payload']}")
-
         key, value = req['payload'].split(':', 1)
 
         try:
+            punctuation = Punctuation.get()
+            if set(value).intersection(punctuation):
+                raise ValueError(f'Punctuations like {"".join(list(punctuation))} are not allowed in the payload.')
+
             decoded_value = json.loads(Parser.serialize(value))
 
             if isinstance(decoded_value, str):
                 raise JSONDecodeError(msg='Input does not follow the key:value format', doc=value, pos=0)
+
+            print(f"[{self._broker_address} | PUT] {req['payload']}")
 
             # If key already exists, remove it in order to store the incoming data
             node = self._store.find(key.strip('"'))
@@ -145,6 +151,8 @@ class KvServer:
         except JSONDecodeError as e:
             # Prepare response
             res = Response(422, 'ERROR - INVALID DATA', f'Failed at pos {e.pos} - {e.msg}')
+        except ValueError as e:
+            res = Response(422, 'ERROR - INVALID DATA', f'{e}')
 
         # Send response
         self._send_response(res)
