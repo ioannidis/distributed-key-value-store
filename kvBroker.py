@@ -4,9 +4,9 @@ import random
 import socket
 import sys
 
-from utils.parser import Parser
-from utils.request import Request
-from utils.response import Response
+from utils.Parser import Parser
+from utils.Request import Request
+from utils.Response import Response
 
 
 class KvBroker:
@@ -108,9 +108,19 @@ class KvBroker:
                         print('[WARNING] Not enough servers to support replication! Please restart the servers!')
                         continue
 
+                    # Check if a record with the given root key already exists
+                    try:
+                        self._is_root_key_duplicated(payload)
+                    except Exception as e:
+                        print(e)
+                        continue
+
+                    # Create request
                     req = Request(req_type, payload)
+                    # Select random sockets
                     rdm_sockets = random.sample(list(self._sockets.keys()), self._options.k)
 
+                    # Send request to the selected servers
                     result = {}
                     for ip in rdm_sockets:
                         self._stream(req, ip, result)
@@ -125,7 +135,7 @@ class KvBroker:
                         self._stream(req, ip, result)
 
                     if not is_replication_valid:
-                        print(f'[WARNING] Data may be inconsistent. More than {self._options.k} servers are unavailable!')
+                        print(f'[WARNING] Data may be inconsistent. {self._options.k} or more servers are unavailable!')
 
                     self.print_result(payload, result)
 
@@ -174,8 +184,25 @@ class KvBroker:
     def _is_replication_valid(self):
         return len(self._configuration) - len(self._sockets) < self._options.k
 
+    # Check if there are enough servers to support replication
     def _is_replication_supported(self):
         return len(self._sockets) < self._options.k
+
+    # Check if there is a record with the given root key
+    def _is_root_key_duplicated(self, payload):
+        root_key, temp_result = payload.split(':', 1)[0], {}
+        req = Request('GET', root_key)
+        for ip in self._sockets.keys():
+            self._stream(req, ip, temp_result)
+
+        # If there is a record with a given key, it will be removed
+        if 200 in temp_result:
+            if not self._is_all_servers_available():
+                raise Exception('[WARNING] Cannot perform PUT operation in order to update a record. One or more servers are unavailable!')
+            else:
+                req = Request('DELETE', root_key)
+                for ip in self._sockets.keys():
+                    self._stream(req, ip, {})
 
     # Send data to the servers
     def _stream(self, req, ip,  result):

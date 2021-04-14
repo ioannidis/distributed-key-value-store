@@ -2,13 +2,12 @@ import argparse
 import socket
 import json
 import pickle
-import string
 from json import JSONDecodeError
 
-from trie import TrieNode
-from utils.parser import Parser
-from utils.punctuation import Punctuation
-from utils.response import Response
+from TrieNode import TrieNode
+from utils.Parser import Parser
+from utils.Punctuation import Punctuation
+from utils.Response import Response
 
 
 
@@ -128,6 +127,7 @@ class KvServer:
         key, value = req['payload'].split(':', 1)
 
         try:
+            # Check if there are unwanted punctuations in the input
             punctuation = Punctuation.get()
             if set(value).intersection(punctuation):
                 raise ValueError(f'Punctuations like {"".join(list(punctuation))} are not allowed in the payload.')
