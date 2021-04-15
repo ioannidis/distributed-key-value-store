@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from DataGenerator import DataGenerator
+from utils.DataGenerator import DataGenerator
 
 args_parser = argparse.ArgumentParser(description='kvServer')
 args_parser.add_argument('-k', '--keyFile', dest='k', type=str, default='keyFile.txt', metavar='', required=True,

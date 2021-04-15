@@ -34,7 +34,7 @@ class KvBroker:
                 new_socket.connect((ip, int(port)))
                 sockets[(ip, int(port))] = new_socket
             except socket.error as e:
-                print(str(e) + " " + ip + ":" + str(port))
+                print(f'{str(e)} {ip} : {str(port)}')
 
         # Check if there are enough servers available to support replication
         if len(sockets) < int(self._options.k):
@@ -101,7 +101,11 @@ class KvBroker:
             else:
                 self._heart_beat()
                 is_replication_valid = self._is_replication_valid()
-                req_type, payload = cmd.split(' ', 1)
+                try:
+                    req_type, payload = cmd.split(' ', 1)
+                except ValueError as e:
+                    print('[Error] Payload is missing!')
+                    continue
 
                 if req_type == 'PUT':
                     if self._is_replication_supported():
@@ -190,7 +194,7 @@ class KvBroker:
 
     # Check if there is a record with the given root key
     def _is_root_key_duplicated(self, payload):
-        root_key, temp_result = payload.split(':', 1)[0], {}
+        root_key, temp_result = payload.split(':', 1)[0].strip('"'), {}
         req = Request('GET', root_key)
         for ip in self._sockets.keys():
             self._stream(req, ip, temp_result)

@@ -87,13 +87,13 @@ class TrieNode:
         return self.search(s)
 
     # Res builder pre-order
-    def res_builder(self, s, branch, depth):
+    def res_build(self, s, branch, depth):
 
         if self.is_key:
             if isinstance(self.value, TrieNode):
                 temp_s = s
                 branch[temp_s] = {}
-                self.value.res_builder('', branch[temp_s], depth + 1)
+                self.value.res_build('', branch[temp_s], depth + 1)
             else:
                 if self.value:
                     branch[s] = self.value
@@ -102,4 +102,4 @@ class TrieNode:
 
         else:
             for k, c in self.children.items():
-                c.res_builder(s + k, branch, depth)
+                c.res_build(s + k, branch, depth)

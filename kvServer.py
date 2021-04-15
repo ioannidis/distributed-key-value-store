@@ -10,7 +10,6 @@ from utils.Punctuation import Punctuation
 from utils.Response import Response
 
 
-
 class KvServer:
 
     def __init__(self, options) -> None:
@@ -95,7 +94,7 @@ class KvServer:
         node = self._store.find(req['payload'])
         if isinstance(node, TrieNode):
             result = {}
-            node.res_builder('', result, 0)
+            node.res_build('', result, 0)
             res = Response(200, 'OK', json.dumps(result).replace(',', ';'))
         elif isinstance(node, str) or isinstance(node, dict):
             res = Response(200, 'OK', json.dumps(node))
@@ -112,7 +111,7 @@ class KvServer:
         node = self._store.find_path(req['payload'])
         if isinstance(node, TrieNode):
             result = {}
-            node.res_builder('', result, 0)
+            node.res_build('', result, 0)
             res = Response(200, 'OK', json.dumps(result).replace(',', ';'))
         elif isinstance(node, str) or isinstance(node, int) or isinstance(node, float) or isinstance(node, dict):
             res = Response(200, 'OK', json.dumps(node))
@@ -124,7 +123,12 @@ class KvServer:
 
     # PUT handler
     def _put_mapping(self, req):
-        key, value = req['payload'].split(':', 1)
+        try:
+            key, value = req['payload'].split(':', 1)
+        except ValueError as e:
+            res = Response(400, 'BAD REQUEST', '[Error] Value is missing!')
+            self._send_response(res)
+            return
 
         try:
             # Check if there are unwanted punctuations in the input

@@ -1,5 +1,5 @@
 # Distributed Key-Value Store
-##M111 - Big Data
+## M111 - Big Data
 ## CS2200006 - Panagiotis Ioannidis
 In this programming assignment, we implement a distributed, fault-tolerant key-value store. Our data are stored using only a trie data structure, which we created it from scratch. We implement this project using python 3.8. For the communication between the broker and the servers, we used socket programming.
 
