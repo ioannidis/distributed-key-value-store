@@ -44,7 +44,7 @@ class DataGenerator:
             if depth == -1:
                 s = s + key + ' : ' + str(self.get_fake_value(key_type))
             else:
-                if random.random() > 0.4:
+                if random.random() > 0.3:
                     s = s + key + ' : ' + str(self.get_fake_value(key_type))
                 else:
                     s = s + key + ' : ' + self.dict_helper(depth)
@@ -55,7 +55,7 @@ class DataGenerator:
         s += ' } '
         return s
 
-
+    # Random value generator
     def get_fake_value(self, type):
         if type == 'string':
             placeholder = '?' * random.randint(1, int(self._options.l))
