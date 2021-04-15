@@ -44,8 +44,8 @@ Below we can see some examples that show how to execute the supported commands.
 `QUERY person15.iban.country`
 
 ### DELETE
-`QUERY person2`  
-`QUERY person14`
+`DELETE person2`  
+`DELETE person14`
 
 ### PUT
 `PUT "personA":{"name":"Panos"}`  
