@@ -82,3 +82,4 @@ Below we can see some examples that show how to execute the supported commands.
 - When a PUT request is issued, the high-level key could be written both with or without double quotes,
   e.g. `PUT "p1": {"a":"A"}` or `PUT p1:{"a":"A"}`  
 - First, we start the servers and then the broker.
+- The servers are logging the incoming requests.
