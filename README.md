@@ -9,7 +9,8 @@ only a trie data structure, which we created it from scratch. We implement this 
 communication between the broker and the servers, we used socket programming.
 
 ### Environment set up
-First, we must set up the python virtual environment. First, we must install the requirements.txt
+First, we must set up the python virtual environment.  
+- `python3.8 -m venv ./venv`
 - `source ./venv/bin/activate` to activate the virtual environment.  
 - `pip install -r requirements.txt`  
 
